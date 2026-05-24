@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedTriage SG - Automated Symptom Checker</title>
+    <style>
+        :root {
+            --primary: #e11d48;
+            --primary-hover: #b91c1c;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #e11d48, #9f1239);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 { font-size: 2rem; margin-bottom: 8px; }
+        header p { opacity: 0.9; font-size: 0.95rem; }
+
+        .disclaimer-box {
+            background-color: #fef2f2;
+            border-left: 4px solid var(--danger);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 25px;
+            font-size: 0.85rem;
+            color: #991b1b;
+        }
+
+        .emergency-list {
+            margin-top: 8px;
+            padding-left: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        h2 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #0f172a;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        input, select, textarea {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15);
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover { background-color: var(--primary-hover); }
+
+        .results {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .triage-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+
+        .triage-EMERGENCY { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .triage-MODERATE { background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .triage-MILD { background-color: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+
+        .result-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .result-section h4 { margin-bottom: 8px; color: #334155; }
+
+        .drug-tag {
+            display: inline-block;
+            background: #ffe4e6;
+            color: #9f1239;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-right: 8px;
+            margin-top: 5px;
+        }
+
+        .warning-text {
+            color: #b45309;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>MedTriage SG</h1>
+        <p>Automated Patient Triage & Symptom Checker Web Clinic</p>
+    </header>
+
+    <div class="disclaimer-box">
+        <strong>⚠️ CRITICAL MEDICAL DISCLAIMER:</strong> This platform provides preliminary screening automated by preset triage rules. It does <strong>not</strong> substitute direct medical assessment. If you are experiencing a severe, life-threatening emergency, do not wait for an appointment. Contact Singapore emergency services immediately:
+        <ul class="emergency-list">
+            <li><strong>Dial 995</strong> for SCDF Ambulance or urgent medical emergencies.</li>
+            <li><strong>Dial 999</strong> for Police assistance.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Patient & Symptom Intake</h2>
+        <form id="triageForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" placeholder="Tan Ah Kow" required>
+                </div>
+                <div class="form-group">
+                    <label for="age">Age</label>
+                    <input type="number" id="age" min="0" max="120" placeholder="35" required>
+                </div>
+                <div class="form-group">
+                    <label for="gender">Gender</label>
+                    <select id="gender" required>
+                        <option value="">Select...</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="duration">Symptom Duration</label>
+                    <select id="duration" required>
+                        <option value="1">Less than 24 hours</option>
+                        <option value="3">1 to 3 days</option>
+                        <option value="7">4 to 7 days</option>
+                        <option value="14">Over a week</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label for="primarySymptom">Primary Concern / Symptom Group</label>
+                    <select id="primarySymptom" required>
+                        <option value="">-- Choose closest matching symptom group --</option>
+                        <option value="chest_pain">Severe Chest Pain, Pressure, or Sudden Breathlessness</option>
+                        <option value="fever_flu">Fever, Chills, Body Aches, or Cold/Flu symptoms</option>
+                        <option value="migraine">Severe Headache or Migraine</option>
+                        <option value="digestive">Stomach Pain, Acid Reflux, Nausea, or Diarrhea</option>
+                        <option value="allergy">Sneezing, Runny Nose, Watery/Itchy Eyes</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label for="additionalNotes">Describe symptoms in your own words (Include known allergies)</label>
+                    <textarea id="additionalNotes" rows="3" placeholder="e.g., Mild fever starting last night, throat feels scratchy. No drug allergies."></textarea>
+                </div>
+            </div>
+            <button type="submit" class="btn">Analyze Symptoms & View OTC Recommendations</button>
+        </form>
+    </div>
+
+    <div class="card results" id="resultsCard">
+        <h2>Automated Triage Assessment</h2>
+        
+        <div id="triageLevel"></div>
+        
+        <p><strong>Patient Name:</strong> <span id="resName"></span> (<span id="resAge"></span> y/o, <span id="resGender"></span>)</p>
+        
+        <div class="result-section">
+            <h4>📋 Preliminary Diagnostic Impression:</h4>
+            <p id="resDiagnosis"></p>
+        </div>
+
+        <div class="result-section">
+            <h4>💊 Automated Drug Recommendations (Over-the-Counter Options):</h4>
+            <div id="resDrugs"></div>
+            <p class="warning-text">Note: Always consult a licensed pharmacist or your doctor before starting any new medication, especially if you have underlying chronic conditions.</p>
+        </div>
+
+        <div class="result-section" style="border-left: 4px solid var(--primary);">
+            <h4>🩺 Essential Next Steps Before Seeing a Human Doctor:</h4>
+            <p id="resNextSteps"></p>
+        </div>
+        
+        <button class="btn" style="background-color: #64748b; margin-top: 20px;" onclick="window.print()">Print Report for Your Doctor</button>
+    </div>
+</div>
+
+<script>
+    document.getElementById('triageForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const name = document.getElementById('fullName').value;
+        const age = document.getElementById('age').value;
+        const gender = document.getElementById('gender').value;
+        const conditionKey = document.getElementById('primarySymptom').value;
+
+        const medicalDatabase = {
+            chest_pain: {
+                level: "EMERGENCY",
+                diagnosis: "Potential Acute Cardiovascular Event or Critical Respiratory Distress.",
+                drugs: "None. Do not self-medicate for severe chest pain conditions.",
+                nextSteps: "DO NOT WAIT FOR A TELEMEDICINE APPOINTMENT. Please dial 995 immediately for an SCDF emergency ambulance, or report straight to the nearest hospital Accident & Emergency (A&E) department. If it is a police matter or safety emergency, call 999."
+            },
+            fever_flu: {
+                level: "MODERATE",
+                diagnosis: "Viral Upper Respiratory Infection / Suspected Influenza.",
+                drugs: ["Paracetamol (Panadol)", "Ibuprofen"],
+                nextSteps: "Keep a regular log of your body temperature readings. Rest well and hydrate. Present this history to your telemedicine doctor during your virtual session to maximize consultation efficiency."
+            },
+            migraine: {
+                level: "MODERATE",
+                diagnosis: "Acute Migraine or High-Tension Headache.",
+                drugs: ["Ibuprofen", "Paracetamol + Caffeine"],
+                nextSteps: "Rest in a darkened, quiet environment away from bright lights or phone screens. Mention the severity and pattern of these headaches to your consultation physician."
+            },
+            digestive: {
+                level: "MILD",
+                diagnosis: "Acute Gastroenteritis or Gastric Hyperacidity.",
+                drugs: ["Antacids", "Loperamide (only if experiencing non-bloody diarrhea)"],
+                nextSteps: "Maintain a light, fluid-based diet (porridge, clear broth). Ensure adequate fluid replacement. If stomach pain localizes intensely to the lower right abdomen, visit a clinic immediately."
+            },
+            allergy: {
+                level: "MILD",
+                diagnosis: "Allergic Rhinitis (Environmental Allergies).",
+                drugs: ["Cetirizine (Zyrtec)", "Loratadine (Clarityn)"],
+                nextSteps: "Avoid known allergy triggers such as dust mites, pet dander, or outdoor haze. Keep track of how your symptoms respond to basic over-the-counter antihistamines."
+            }
+        };
+
+        const assessment = medicalDatabase[conditionKey];
+
+        document.getElementById('resName').innerText = name;
+        document.getElementById('resAge').innerText = age;
+        document.getElementById('resGender').innerText = gender;
+        document.getElementById('resDiagnosis').innerText = assessment.diagnosis;
+        document.getElementById('resNextSteps').innerText = assessment.nextSteps;
+
+        const badge = document.getElementById('triageLevel');
+        badge.className = `triage-badge triage-${assessment.level}`;
+        badge.innerText = `Severity Status: ${assessment.level}`;
+
+        const drugContainer = document.getElementById('resDrugs');
+        drugContainer.innerHTML = "";
+        if (Array.isArray(assessment.drugs)) {
+            assessment.drugs.forEach(drug => {
+                const span = document.createElement('span');
+                span.className = 'drug-tag';
+                span.innerText = drug;
+                drugContainer.appendChild(span);
+            });
+        } else {
+            drugContainer.innerHTML = `<em style="color: var(--danger); font-weight: bold;">${assessment.drugs}</em>`;
+        }
+
+        document.getElementById('resultsCard').style.display = 'block';
+        document.getElementById('resultsCard').scrollIntoView({ behavior: 'smooth' });
+    });
+</script>
+
+</body>
+</html>
